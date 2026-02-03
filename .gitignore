@@ -1,0 +1,33 @@
+# python
+_pycache_/
+*._pyc
+.venv/
+.env
+
+# jupyter
+.ipynb_checkpoints/
+*.nbconvert.ipynb 
+
+# data (keep structure, not contents)
+data/raw/**
+data/processed/**
+data/outputs/**
+
+!data/**/.gitkeep
+!data/**/README.md
+
+# geospatial junk
+*.tif
+*.tiff
+*.img
+*.aux.xml
+*.ovr
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+
+# os
+.DS_Store
+Thumbs.db
