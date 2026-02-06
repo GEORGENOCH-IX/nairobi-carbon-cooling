@@ -1,10 +1,10 @@
-// ======================================================
-// Script 02: Landsat Preprocessing with Temporal Epochs
-// ======================================================
+// ==============================================
+// Optimized Temporal Strategy: Q1 Hot Dry Season
+// ==============================================
 
 var aoi = ee.Geometry.Rectangle([36.65, -1.45, 37.10, -1.15]);
 
-// Function to apply scaling factors
+// Scaling functions
 function applyScaleFactors(image) {
   var opticalBands = image.select('SR_B.').multiply(0.0000275).add(-0.2);
   var thermalBand = image.select('ST_B10').multiply(0.00341802).add(149.0);
@@ -12,33 +12,42 @@ function applyScaleFactors(image) {
               .addBands(thermalBand, null, true);
 }
 
-// Cloud mask function
 function maskL8sr(image) {
   var qaMask = image.select('QA_PIXEL').bitwiseAnd(parseInt('11111', 2)).eq(0);
   var saturationMask = image.select('QA_RADSAT').eq(0);
   return image.updateMask(qaMask).updateMask(saturationMask);
 }
 
-// Define epochs (dry seasons for consistency)
+// Define epochs - Q1 Hot Dry Season (Jan-Mar)
 var epochs = [
-  {year: 2015, start: '2015-01-01', end: '2015-02-28'},
-  {year: 2018, start: '2018-01-01', end: '2018-02-28'},
-  {year: 2021, start: '2021-01-01', end: '2021-02-28'},
-  {year: 2025, start: '2024-01-01', end: '2024-02-28'}
+  {year: 2015, start: '2015-01-01', end: '2015-03-31'},
+  {year: 2018, start: '2018-01-01', end: '2018-03-31'},
+  {year: 2021, start: '2021-01-01', end: '2021-03-31'},
+  {year: 2024, start: '2024-01-01', end: '2024-03-31'}
 ];
 
-// Process one epoch as example (2024)
-var currentEpoch = epochs[0]; // Change index to process different years
+// Load Landsat 8 Collection
+var landsat = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2");
 
-var landsat = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
-  .filterBounds(aoi)
-  .filterDate(currentEpoch.start, currentEpoch.end)
-  .filter(ee.Filter.lt('CLOUD_COVER', 20))
-  .map(applyScaleFactors)
-  .map(maskL8sr);
+// Function to create composite for each epoch
+function createEpochComposite(epoch) {
+  var composite = landsat
+    .filterBounds(aoi)
+    .filterDate(epoch.start, epoch.end)
+    .filter(ee.Filter.lt('CLOUD_COVER', 20))
+    .map(applyScaleFactors)
+    .map(maskL8sr)
+    .median()
+    .clip(aoi);
+  
+  return composite.set('year', epoch.year);
+}
 
-// Create median composite for the epoch
-var composite = landsat.median().clip(aoi);
+// Generate composites for all epochs
+var composites = epochs.map(createEpochComposite);
+
+// Work with 2024 composite for now
+var composite2024 = ee.Image(composites[3]);
 
 // Visualization
 Map.centerObject(aoi, 11);
@@ -51,10 +60,16 @@ var visParams = {
 };
 
 Map.addLayer(aoi, {color: 'yellow'}, 'AOI', false);
-Map.addLayer(composite, visParams, currentEpoch.year + ' Composite');
+Map.addLayer(composite2024, visParams, '2024 Q1 Composite');
 
-// Check data availability
-print('Epoch:', currentEpoch.year);
-print('Images available:', landsat.size());
-print('Date range:', landsat.aggregate_array('DATE_ACQUIRED'));
-print('Composite bands:', composite.bandNames());
+// Data availability check
+epochs.forEach(function(epoch) {
+  var count = landsat
+    .filterBounds(aoi)
+    .filterDate(epoch.start, epoch.end)
+    .filter(ee.Filter.lt('CLOUD_COVER', 20))
+    .size();
+  print(epoch.year + ' Q1 images:', count);
+});
+
+print('2024 Composite bands:', composite2024.bandNames());
